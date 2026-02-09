@@ -1,0 +1,12 @@
+program
+begin
+   x, y : integer;
+   x := 1;
+   while x == 1 :
+      begin
+         x := 2;
+      end
+   else
+      x := 3;
+end
+.

@@ -1,0 +1,115 @@
+import java_cup.runtime.*;
+import java.io.*;
+import java.util.*;
+import SymbolTable.*;
+import AST.*;
+
+parser code {:
+SymbolTable symbolTable;
+:};
+
+init with {:
+symbolTable = new SymbolTable();
+:};
+
+// TERMINALI:
+terminal PROGRAM, BEGIN, END, COLON, SEMI, COMMA, DOT, ASSIGN;
+terminal INTEGER, CHAR, REAL, BOOLEAN;
+terminal WHILE, ELSE;
+terminal PLUS, MUL, OR, AND, LE, EQ, GE;
+terminal LEFTPAR, RIGHTPAR;
+terminal String ID;
+terminal Object CONST;
+
+// NETERMINALI:
+non terminal Block Program, Block;
+non terminal ArrayList Variables, NameList;
+non terminal StatementList StatementList;
+non terminal Declaration Declaration;
+non terminal Statement Statement, WhileLoop;
+non terminal Expression Expression, AndExpression, RelExpression, Term;
+non terminal Type Type;
+non terminal String RelOp;
+
+
+// GRAMATIKA:
+
+Program ::= PROGRAM Block:b DOT
+{: RESULT = b; :}
+;
+
+Block ::= BEGIN Variables:v StatementList:sl END
+{: RESULT = new Block(v, sl); :}
+| BEGIN StatementList:sl END
+{: RESULT = new Block(new ArrayList(), sl); :}
+;
+
+Variables ::= Variables:v Declaration:d
+{: RESULT = v; RESULT.add(d); :}
+| Declaration:d
+{: RESULT = new ArrayList(); RESULT.add(d); :}
+;
+
+Declaration ::= NameList:nl COLON Type:t SEMI
+{:
+for (int i=0; i<nl.size(); i++) {
+    String ime = (String) nl.get(i);
+    parser.symbolTable.addVar(ime, t);
+}
+RESULT = new Declaration(nl, t);
+:}
+;
+
+NameList ::= NameList:nl COMMA ID:ime
+{: RESULT = nl; RESULT.add(ime); :}
+| ID:ime
+{: RESULT = new ArrayList(); RESULT.add(ime); :}
+;
+
+Type ::= INTEGER  {: RESULT = parser.symbolTable.getType("integer"); :}
+| CHAR     {: RESULT = parser.symbolTable.getType("char"); :}
+| REAL     {: RESULT = parser.symbolTable.getType("real"); :}
+| BOOLEAN  {: RESULT = parser.symbolTable.getType("boolean"); :}
+;
+
+StatementList ::= Statement:s
+{: StatementList sl = new StatementList(); sl.addStatement(s); RESULT = sl; :}
+| StatementList:sl Statement:s
+{: sl.addStatement(s); RESULT = sl; :};
+
+Statement ::= WhileLoop:w {: RESULT = w; :}
+| ID:id ASSIGN Expression:e SEMI
+{: RESULT = new Assignment(parser.symbolTable.getVar(id), e); :}
+| Block:b {: RESULT = b; :};
+
+WhileLoop ::= WHILE Expression:e COLON Statement:s1 ELSE Statement:s2
+{: RESULT = new WhileElseStatement(e, s1, s2); :};
+
+
+Expression ::= Expression:e OR AndExpression:ae
+{: RESULT = new LogicalExpression(e, "OR", ae); :}
+| AndExpression:ae
+{: RESULT = ae; :}
+;
+
+AndExpression ::= AndExpression:ae AND RelExpression:re
+{: RESULT = new LogicalExpression(ae, "AND", re); :}
+| RelExpression:re
+{: RESULT = re; :}
+;
+
+RelExpression ::= Term:t1 RelOp:op Term:t2
+{: RESULT = new RelationalExpression(t1, op, t2); :}
+| Term:t
+{: RESULT = t; :}
+;
+
+RelOp ::= LE {: RESULT = "<="; :} | EQ {: RESULT = "=="; :} | GE {: RESULT = ">="; :};
+
+Term ::= ID:id
+{: RESULT = new VariableExpression(parser.symbolTable.getVar(id)); :}
+| CONST:c
+{: RESULT = new ConstantExpression(new Constant(null, c)); :}
+| LEFTPAR Expression:e RIGHTPAR
+{: RESULT = e; :}
+;

@@ -1,0 +1,15 @@
+	Load_Const	R1, 1
+	Store		R1, x
+lab0:
+	Load_Mem	R1, x
+	Load_Const	R2, 1
+	Compare_Equal		R1, R2
+	Store		R1, $tmp0
+	Load_Mem	R1, $tmp0
+	JumpIfZero	R1, lab1
+	Load_Const	R1, 2
+	Store		R1, x
+	Jump	lab0
+lab1:
+	Load_Const	R1, 3
+	Store		R1, x
