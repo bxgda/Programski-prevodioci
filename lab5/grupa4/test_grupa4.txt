@@ -1,0 +1,7 @@
+program 
+{
+  f(x:int) => x ;
+  a:int ;
+  a = f(5)
+}
+end

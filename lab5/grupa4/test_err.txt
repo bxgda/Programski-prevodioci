@@ -1,0 +1,10 @@
+program Err
+{
+  int x;
+  float y;
+  int foo(a: int, b: float);
+
+  x = 1;
+  foo(y, x);
+}
+end

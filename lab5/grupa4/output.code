@@ -1,0 +1,11 @@
+	Jump		lab0
+f:
+	Load_Mem	R1, param_f_0
+	Store		R1, ret_f
+lab0:
+	Load_Const	R1, 5
+	Store		R1, param_f_0
+	Jump		f
+lab1:
+	Load_Mem	R1, ret_f
+	Store		R1, a
