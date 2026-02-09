@@ -1,0 +1,208 @@
+import java_cup.runtime.*;
+import java.io.*;
+import java.util.*;
+import SymbolTable.*;
+
+parser code {:
+    public int errNo = 0;
+    public int warnNo = 0;
+    
+    SymbolTable symbolTable;
+    public void checkWarnings() {
+        for (Variable v : symbolTable.getAllVariables()) {
+            // ako je dodeljena vrednost (last_def != -1) ali se nigde ne koristi (last_use == -1)
+            if (v.last_def != -1 && v.last_use == -1) {
+                System.out.println("Upozorenje: Vrednost dodeljena promenljivoj " + v.name
+                    + " u liniji " + v.last_def + " se nigde ne koristi.");
+                warnNo++;
+            }
+        }
+    }
+    
+    // Override report_error da ne bi ispisivao default poruke, vec samo nase
+    public void report_error(String message, Object info) {
+        // Prazno - kontrolisemo ispis u akcijama
+    }
+
+    public void syntax_error(Symbol cur_token) {
+    }
+    
+    public int getLine() {
+        return ((MPLexer) getScanner()).getLine();
+    }
+:};
+
+init with {:
+    symbolTable = new SymbolTable();
+:};
+
+terminal PROGRAM, BEGIN, END, INTEGER, CHAR, REAL, BOOLEAN;
+terminal WHILE, ELSE, OR, AND;
+terminal ASSIGN, LT, LE, EQ, NE, GT, GE;
+terminal COMMA, COLON, SEMICOLON, LEFTPAR, RIGHTPAR, DOT;
+terminal String ID;
+terminal Object CONST;
+
+non terminal Program, Block, Variables, Declaration, StatementList, Statement, WhileLoop;
+non terminal RelOp;
+non terminal Type Type;
+non terminal Type Expression, AndExpression, RelExpression, Term;
+non terminal ArrayList NameList;
+
+// GRAMATIKA
+
+Program ::= PROGRAM Block DOT
+          | PROGRAM Block error
+            {:
+               System.out.println("Greska u liniji " + parser.getLine() + ": Nedostaje tacka na kraju.");
+               parser.errNo++;
+            :};
+
+Block ::= BEGIN Variables StatementList END
+        | BEGIN Variables StatementList error
+          {:
+             System.out.println("Greska u liniji " + parser.getLine() + ": Nedostaje 'end'.");
+             parser.errNo++;
+          :};
+
+Variables ::= Variables Declaration
+            | /* epsilon */
+            ;
+
+Declaration ::= NameList:niz COLON Type:t SEMICOLON
+                {:
+                    for (int i=0; i<niz.size(); i++) {
+                        String ime = (String) niz.get(i);
+                        if (!parser.symbolTable.addVar(ime, t)) {
+                            System.out.println("Greska u liniji " + parser.getLine() + ": Promenljiva " + ime + " je vec deklarisana.");
+                            parser.errNo++;
+                        }
+                    }
+                :}
+              | NameList:niz COLON Type:t error
+                {:
+                    System.out.println("Greska u liniji " + parser.getLine() + ": Nedostaje ';' na kraju deklaracije.");
+                    parser.errNo++;
+                :};
+
+NameList ::= NameList:niz COMMA ID:ime
+             {:
+                RESULT = niz;
+                RESULT.add(ime);
+             :}
+           | ID:ime
+             {:
+                RESULT = new ArrayList();
+                RESULT.add(ime);
+             :};
+
+Type ::= INTEGER  {: RESULT = parser.symbolTable.getType("integer"); :}
+       | CHAR     {: RESULT = parser.symbolTable.getType("char"); :}
+       | REAL     {: RESULT = parser.symbolTable.getType("real"); :}
+       | BOOLEAN  {: RESULT = parser.symbolTable.getType("boolean"); :}
+       ;
+
+StatementList ::= Statement
+                | StatementList Statement
+                ;
+
+Statement ::= WhileLoop
+            | ID:ime ASSIGN Expression:e SEMICOLON
+              {:
+                  Variable var = parser.symbolTable.getVar(ime);
+                  if (var == null) {
+                      System.out.println("Greska u liniji " + parser.getLine() + ": promenljiva " + ime + " nije deklarisana.");
+                      parser.errNo++;
+                  } else {
+                      var.last_def = parser.getLine();
+                      if (var.type.tkind != e.tkind) {
+                          System.out.println("Greska u liniji " + parser.getLine() + ": Neslaganje tipa u naredbi dodele.");
+                          parser.errNo++;
+                      }
+                  }
+              :}
+            // Oporavak kod pogresne dodele (npr. fali ;)
+            | ID ASSIGN Expression error
+              {:
+                  System.out.println("Greska u liniji " + parser.getLine() + ": Sintaksna greska u dodeli (fali ';').");
+                  parser.errNo++;
+              :}
+            | Block
+            ;
+
+WhileLoop ::= WHILE Expression:e COLON Statement ELSE Statement
+              {:
+                  if (e.tkind != Type.BOOLEAN) {
+                      System.out.println("Greska u liniji " + parser.getLine() + ": Uslov while petlje mora biti tipa boolean.");
+                      parser.errNo++;
+                  }
+              :};
+
+Expression ::= Expression:e1 OR AndExpression:e2
+               {:
+                   if (e1.tkind != Type.BOOLEAN || e2.tkind != Type.BOOLEAN) {
+                       System.out.println("Greska u liniji " + parser.getLine() + ": Operator OR zahteva boolean operande.");
+                       parser.errNo++;
+                   }
+                   RESULT = parser.symbolTable.getType("boolean");
+               :}
+             | AndExpression:e
+               {: RESULT = e; :}
+             ;
+
+AndExpression ::= AndExpression:e1 AND RelExpression:e2
+                  {:
+                      if (e1.tkind != Type.BOOLEAN || e2.tkind != Type.BOOLEAN) {
+                          System.out.println("Greska u liniji " + parser.getLine() + ": Operator AND zahteva boolean operande.");
+                          parser.errNo++;
+                      }
+                      RESULT = parser.symbolTable.getType("boolean");
+                  :}
+                | RelExpression:e
+                  {: RESULT = e; :}
+                ;
+
+RelExpression ::= Term:t1 RelOp Term:t2
+                  {:
+                      boolean t1IsNumeric = (t1.tkind == Type.INTEGER || t1.tkind == Type.REAL);
+                      boolean t2IsNumeric = (t2.tkind == Type.INTEGER || t2.tkind == Type.REAL);
+                      
+                      if (!t1IsNumeric || !t2IsNumeric) {
+                          System.out.println("Greska u liniji " + parser.getLine() + ": Relacioni operatori zahtevaju numericke operande.");
+                          parser.errNo++;
+                      }
+                      RESULT = parser.symbolTable.getType("boolean");
+                  :}
+                | Term:t
+                  {: RESULT = t; :}
+                ;
+
+RelOp ::= LT | LE | EQ | NE | GT | GE ;
+
+Term ::= ID:ime
+         {:
+             Variable var = parser.symbolTable.getVar(ime);
+             if (var == null) {
+                 System.out.println("Greska u liniji " + parser.getLine() + ": promenljiva " + ime + " nije deklarisana.");
+                 RESULT = parser.symbolTable.getType("unknown");
+                 parser.errNo++;
+             } else {
+                 if (var.last_def == -1) {
+                     System.out.println("Greska u liniji " + parser.getLine() + ": promenljiva " + ime + " nije inicijalizovana.");
+                     parser.errNo++;
+                 }
+                 var.last_use = parser.getLine();
+                 RESULT = var.type;
+             }
+         :}
+       | CONST:c
+         {:
+            if (c instanceof Integer) RESULT = parser.symbolTable.getType("integer");
+            else if (c instanceof Double) RESULT = parser.symbolTable.getType("real");
+            else if (c instanceof Character) RESULT = parser.symbolTable.getType("char");
+            else if (c instanceof Boolean) RESULT = parser.symbolTable.getType("boolean");
+            else RESULT = parser.symbolTable.getType("unknown");
+         :}
+       | LEFTPAR Expression:e RIGHTPAR
+         {: RESULT = e; :}
+       ;

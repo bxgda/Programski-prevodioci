@@ -1,0 +1,37 @@
+program
+begin
+    xx, yy : integer;
+    bb : boolean;
+    rr : real;
+    xx : char;
+    ** GRESKA 1: Promenljiva 'xx' je vec deklarisana **
+
+    xx := 10;
+    yy := xx;
+    ** OK: xx je inicijalizovano, tipovi se slazu **
+
+    nepoznata := 5;
+    ** GRESKA 2: Promenljiva 'nepoznata' nije deklarisana **
+
+    bb := rr > 5.5;
+    ** GRESKA 3: Promenljiva 'rr' se koristi a nije inicijalizovana **
+
+    xx := true;
+    ** GRESKA 4: Neslaganje tipova (boolean u integer) **
+
+    while 100 :
+    ** GRESKA 5: Uslov while petlje mora biti boolean **
+        xx := 1;
+    else
+        xx := 2;
+
+    bb := true or 5;
+    ** GRESKA 6: OR zahteva boolean operande **
+
+    bb := xx > true;
+    ** GRESKA 7: Relacioni operator > zahteva numericke operande **
+
+    ** UPOZORENJA KOJA TREBA DA SE POJAVE NA KRAJU **
+    ** 1. Promenljiva 'bb' je dodeljena ali se ne koristi **
+    ** 2. Promenljiva 'yy' je dodeljena ali se ne koristi **
+end.
