@@ -1,5 +1,5 @@
 # Programski prevodioci
-- Rešene lab vežbe za sve termine po grupama (nema sve grupe)... Dosta koda je na žalost "ai generated" ali je bar tačno... Neke grupe su rađene tako da ne mora da se koristi buđavi eclipse nego vs code...
+- Rešene lab vežbe za sve termine po grupama (nema baš sve grupe)... Dosta koda je na žalost "ai generated" ali je bar tačno... Neke grupe su rađene tako da ne mora da se koristi buđavi eclipse nego vs code...
 
 ##
 
